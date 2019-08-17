@@ -2,7 +2,6 @@ cmake_minimum_required (VERSION 3.0)
 
 project("signature generator" VERSION 1.0 LANGUAGES CXX)
 
-find_package(Boost 1.69.0 COMPONENTS program_options REQUIRED)
 
 
 set (CMAKE_CXX_STANDARD 17)
@@ -18,5 +17,8 @@ file(GLOB SOURCES "src/*.cpp")
 
 add_executable(signator ${SOURCES})
 
-target_link_libraries(signator ${Boost_LIBRARIES} )
+find_package(Boost 1.69.0 COMPONENTS program_options REQUIRED)
+find_package(Threads REQUIRED)
+
+target_link_libraries(signator ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
