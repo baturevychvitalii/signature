@@ -1,26 +1,27 @@
 #include <boost/program_options.hpp>
 
+#include "include/custom_exceptions.h"
 #include "include/input.h"
 
-Input::Input(int argc, char * argv[], std::ostream & error_stream)
+input::input(int argc, char * argv[], std::ostream & error_stream)
 	: bad(true)
 {
-	namespace po = boost::program_options;
+	using namespace boost::program_options;
 
-	po::options_description desc("Usage");
+	options_description desc("Usage");
 	desc.add_options()
 		("help,h","display this message")
-		("input_file,i", po::value<std::string>()->required(), "file, signature of which will be generated")
-		("output_file,o", po::value<std::string>()->required(), "file, where the signature will be stored")
-		("block_size,b", po::value<unsigned short>()->default_value(1024), "block size KB")
-		("verbose,v", po::value<bool>()->default_value(false)->implicit_value(true), "verbosity");
+		("input_file,i", value<std::string>()->required(), "file, signature of which will be generated")
+		("output_file,o", value<std::string>()->required(), "file, where the signature will be stored")
+		("block_size,b", value<unsigned short>()->default_value(1024), "block size KB")
+		("verbose,v", value<bool>()->default_value(false)->implicit_value(true), "verbosity");
 
-	po::variables_map var_map;
+	variables_map var_map;
 
 	try
 	{
-		po::store(po::parse_command_line(argc, argv, desc), var_map);
-		po::notify(var_map);
+		store(parse_command_line(argc, argv, desc), var_map);
+		notify(var_map);
 		bad = false;
 	}
 	catch(const std::exception& e)
@@ -37,52 +38,44 @@ Input::Input(int argc, char * argv[], std::ostream & error_stream)
 	}
 }
 
-bool Input::is_bad() const noexcept
+bool input::is_bad() const noexcept
 {
 	return bad;
 }
 
-std::string Input::in() const
+void input::check_bad() const
 {
 	if (is_bad())
 	{
-		throw InputException();
+		throw input_exception();
 	}
+}
 
+std::string input::get_input_file() const
+{
+	check_bad();
 	return inputfile;
 }
 
-std::string Input::out() const
+std::string input::get_output_file() const
 {
-	if (is_bad())
-	{
-		throw InputException();
-	}
-
+	check_bad();
 	return outputfile;
 }
 
-unsigned short Input::block_size() const
+unsigned short input::get_block_size() const
 {
-	if (is_bad())
-	{
-		throw InputException();
-	}
-
+	check_bad();
 	return b_size;
 }
 
-bool Input::is_verbose() const
+bool input::is_verbose() const
 {
-	if (is_bad())
-	{
-		throw InputException();
-	}
-
+	check_bad();
 	return verbose;
 }
 
-std::ostream & operator << (std::ostream & os, const Input & i)
+std::ostream & operator << (std::ostream & os, const input & i)
 {
 	if (i.is_bad())
 	{

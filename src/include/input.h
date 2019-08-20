@@ -2,17 +2,16 @@
 #define __INPUT_HANDLER__
 #include <string>
 
-struct Input
+struct input
 {
-	Input(int argc, char * argv[], std::ostream & error_stream);
-	Input(const Input & l) = default;
-	Input(Input && r) = default;
+	input(int argc, char * argv[], std::ostream & error_stream);
+	input(const input & l) = default;
+	input(input && r) = default;
 
-	std::string in() const;
-	std::string out() const;
-	unsigned short block_size() const;
+	std::string get_input_file() const;
+	std::string get_output_file() const;
+	unsigned short get_block_size() const;
 	bool is_verbose() const;
-
 	bool is_bad() const noexcept;
 
 	private:
@@ -20,27 +19,12 @@ struct Input
 		std::string inputfile, outputfile;
 		unsigned short b_size;
 		bool verbose;
-};
 
-class InputException : public std::exception
-{
-	public:
-		InputException(const char * msg = "input is bad, check before using member getters")
-			: message(msg)
-		{
-		}
-
-		const char * what() const noexcept override
-		{
-			return message.c_str();
-		}
-
-	private:
-		std::string message;
+		void check_bad() const;
 };
 
 #ifdef DEBUG
-std::ostream & operator << (std::ostream & os, const Input & i);
+std::ostream & operator << (std::ostream & os, const input & i);
 #endif
 
 #endif
