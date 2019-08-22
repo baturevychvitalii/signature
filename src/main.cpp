@@ -1,8 +1,7 @@
-#include <future>
-#include <chrono>
 #include <iostream>
-#include <fstream>
 
+
+#include "include/hash_generator.h"
 
 #include "include/input.h"
 int main (int argc, char * argv[])
@@ -18,7 +17,25 @@ int main (int argc, char * argv[])
 		return 1;
 	}
 
-	
+	std::unique_ptr<hash_generator> generate_hash;
 
+	try
+	{
+		generate_hash = std::make_unique<hash_generator>(input);
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << e.what() << '\n';
+	}
+
+	if(!(*generate_hash)(std::thread::hardware_concurrency()))
+	{
+		std::cout << "errors occured during hash generation" << std::endl;
+		return 2;
+	}
+
+
+
+	std::cout << "hash successfully generated and stored into " << input.get_output_file() << std::endl;
 	return 0;
 }

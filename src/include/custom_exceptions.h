@@ -37,4 +37,21 @@ class paralel_exception : public std::exception
 		const char * message;
 };
 
+class file_exception : public std::exception
+{
+	public:
+		file_exception(const char * msg = "file exception")
+			: message(msg)
+		{
+		}
+
+		const char * what() const noexcept override
+		{
+			return message;
+		}
+
+	private:
+		const char * message;
+};
+
 #endif

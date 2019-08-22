@@ -13,7 +13,7 @@ input::input(int argc, char * argv[], std::ostream & error_stream)
 		("help,h","display this message")
 		("input_file,i", value<std::string>()->required(), "file, signature of which will be generated")
 		("output_file,o", value<std::string>()->required(), "file, where the signature will be stored")
-		("block_size,b", value<unsigned short>()->default_value(1024), "block size KB")
+		("block_size,b", value<std::size_t>()->default_value(1024), "block size KB")
 		("verbose,v", value<bool>()->default_value(false)->implicit_value(true), "verbosity");
 
 	variables_map var_map;
@@ -33,7 +33,7 @@ input::input(int argc, char * argv[], std::ostream & error_stream)
 	{
 		inputfile = std::move(var_map["input_file"].as<std::string>());
 		outputfile = std::move(var_map["output_file"].as<std::string>());
-		b_size = std::move(var_map["block_size"].as<unsigned short>());
+		b_size = std::move(var_map["block_size"].as<std::size_t>());
 		verbose = std::move(var_map["verbose"].as<bool>());
 	}
 }
@@ -63,12 +63,6 @@ std::string input::get_output_file() const
 	return outputfile;
 }
 
-unsigned short input::get_block_size() const
-{
-	check_bad();
-	return b_size;
-}
-
 bool input::is_verbose() const
 {
 	check_bad();
@@ -83,9 +77,9 @@ std::ostream & operator << (std::ostream & os, const input & i)
 	}
 	else
 	{
-		os << "input file = "<< i.in() 
-			<< "\noutput file = " << i.out()
-			<< "\nblock size = " << i.block_size()
+		os << "input file = "<< i.get_input_file()
+			<< "\noutput file = " << i.get_output_file()
+			<< "\nblock size = " << i.get_block_size()
 			<< "\nvervose = " << std::ios_base::boolalpha << i.is_verbose() << std::endl;
 	}
 
