@@ -12,6 +12,7 @@ class hash_generator
 {
 	using kilobytes_to_bytes = std::ratio<1024,1>::type;
 	using byte = char;
+	using byte_arr = std::shared_ptr<byte[]>;
 
 	/*
 	 * size of a block to process for single task unit (in bytes)
@@ -39,9 +40,6 @@ class hash_generator
 	 */
 	const std::string input_file_name;
 
-	/*
-	 * size of input file (in bytes)
-	 */
 	std::size_t input_file_size;
 
 	/*
@@ -51,21 +49,14 @@ class hash_generator
 	 * and don't allocate and delete char buffer with each task,
 	 * but keep them alive for all tasks, launched by thread
 	 */
-	thread_pool<std::ifstream, std::shared_ptr<byte[]>> pool;
+	thread_pool<std::ifstream, byte_arr> pool;
 
+	
+	static std::string hash(byte_arr data, std::size_t size);
 
-	/*
-	 * folowing lines will determine at compile time 
-	 * hash functor type, hash output type and
-	 * size of one output hash from one input block
-	 */
-	using hasher = std::hash<std::string>;
-	using hash_return_t = std::invoke_result_t<hasher, std::string>;
-	static constexpr std::size_t out_block_size = sizeof(hash_return_t);
-
-	void do_one_block(
+	std::string do_one_block(
 		std::ifstream & thread_file_instance,
-		std::shared_ptr<byte[]> thread_buffer,
+		byte_arr thread_buffer,
 		std::size_t id
 	);
 

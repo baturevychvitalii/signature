@@ -12,8 +12,6 @@ template <class ... ArgsOwnedByThread>
 class thread_pool
 {
 	public:
-		using task_type = std::packaged_task<void(ArgsOwnedByThread ...)>;
-
 		thread_pool()
 			: job_done(false)
 		{
@@ -42,13 +40,15 @@ class thread_pool
 		* add task for workers
 		* @return future, linked to newly pushed task
 		*/
-		std::future<void> push_task(task_type && task)
+		template<typename Func, typename Ret = std::invoke_result_t<Func, ArgsOwnedByThread ...>>
+		std::future<Ret> push_task(Func && task)
 		{
-			auto fut = task.get_future();
+			std::packaged_task<Ret(ArgsOwnedByThread...)> pt(std::forward<Func>(task));
+			auto fut = pt.get_future();
 
 			{
 				std::scoped_lock<std::mutex> l(m);
-				tasks.push(std::move(task));
+				tasks.emplace(std::move(pt));
 			}
 
 			cond_var.notify_one(); // wake one thread to work on the task
@@ -79,7 +79,6 @@ class thread_pool
 			
 			job_done = true;
 			cond_var.notify_all();
-
 		}
 
 	private:
@@ -93,16 +92,16 @@ class thread_pool
 		* packaged tasks are being given pointer to this thread pool
 		* this way when some special task finishes job - it can set job finished flag
 		*/
-		std::queue<task_type> tasks;
+		std::queue<std::packaged_task<void(ArgsOwnedByThread ...)>> tasks;
 		std::vector<std::future<void>> workers;
 		std::atomic<bool> job_done;
 
 		// the work that a worker thread does:
-		void thread_routine(ArgsOwnedByThread & ... args_for_tasks)
+		void thread_routine(ArgsOwnedByThread ... args_for_tasks)
 		{
 			while(!job_done)
 			{
-				task_type perform_task;
+				std::packaged_task<void(ArgsOwnedByThread ...)> perform_task;
 
 				{
 					std::unique_lock<std::mutex> l(m);
@@ -120,7 +119,7 @@ class thread_pool
 
 				// note: args are not forwarded, because this thread shall be
 				// their owner. this is the point of this args, that they are
-				// owned by thread
+				// thread specific
 				perform_task(args_for_tasks ...);
 			}
 		}
