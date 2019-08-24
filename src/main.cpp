@@ -1,8 +1,6 @@
 #include <iostream>
 
-
 #include "include/hash_generator.h"
-
 #include "include/input.h"
 int main (int argc, char * argv[])
 {
@@ -28,7 +26,8 @@ int main (int argc, char * argv[])
 		std::cerr << e.what() << '\n';
 	}
 
-	if(!(*generate_hash)(std::thread::hardware_concurrency()))
+	//if(!(*generate_hash)(std::thread::hardware_concurrency()))
+	if(!(*generate_hash)(1))
 	{
 		std::cout << "errors occured during hash generation" << std::endl;
 		return 2;

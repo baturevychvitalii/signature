@@ -1,7 +1,5 @@
 #include <iostream>
 #include <iomanip>
-#include <functional>
-#include <type_traits>
 
 #include <openssl/sha.h>
 
@@ -14,23 +12,8 @@ hash_generator::hash_generator(const input & user_input)
 	verbose(user_input.is_verbose()),
 	input_file_name(user_input.get_input_file())
 {
-	// check if input file is possible to read
-	{
-		std::ifstream input_file(input_file_name, std::ios_base::binary | std::ios_base::ate);
-		if (!input_file.is_open())
-		{
-			throw file_exception("couldn't open input file for reading");
-		}
+	auto input_file_size = check_input_file();
 
-		// since file was opened wit ios_base::ate size can be determined immediately
-		input_file_size = input_file.tellg();
-
-		if (input_file_size == 0)
-		{
-			throw std::invalid_argument("file is empty!");
-		}
-
-	}
 
 	// check if output file is possible to write to
 	signature_file.open(user_input.get_output_file(), std::ios_base::trunc);
@@ -39,71 +22,117 @@ hash_generator::hash_generator(const input & user_input)
 		throw file_exception("couldn't open output file for writing");
 	}
 
-	// add zeros to the end of file if it's incompatiple with block size
-	// so there are no checks during task execution
-	// because constructor is one, and tasks are legion
-	if (input_file_size % block_size != 0)
+	// determine block size, amount of blocks and last block size
+	if (input_file_size % block_size == 0)
 	{
-		std::size_t missing = block_size - input_file_size % block_size;
-		std::ofstream tmp(input_file_name, std::ios_base::binary | std::ios_base::ate);
-
-		std::unique_ptr<char[]> tmp_ptr = std::make_unique<char[]>(missing);
-		std::fill_n(tmp_ptr.get(), missing, 0);
-		tmp.write(tmp_ptr.get(), missing);
-		input_file_size += missing;
+		last_block_size = block_size;
+		blocks_n = input_file_size / block_size;
 	}
+	else
+	{
+		last_block_size = input_file_size % block_size;
+		blocks_n = input_file_size / block_size + 1;
+	}
+}
+
+std::size_t hash_generator::check_input_file() const
+{
+	std::ifstream input_file(input_file_name, std::ios_base::binary | std::ios_base::ate);
+	if (!input_file.is_open())
+	{
+		throw file_exception("couldn't open input file for reading");
+	}
+
+	// since file was opened wit ios_base::ate size can be determined immediately
+	std::size_t size = input_file.tellg();
+
+	if (size == 0)
+	{
+		throw std::invalid_argument("file is empty!");
+	}
+
+	return size;
 }
 
 bool hash_generator::operator()(std::size_t threads)
 {
-	threads = threads > 0 ? threads : 1;
+	if (threads == 0)
+		throw std::invalid_argument("must be at least one thread");
 
-	for (std::size_t i = 0 ; i < threads; i++)
-	{
-		pool.add_thread(
-			std::ifstream(input_file_name, std::ios_base::binary),
-			std::make_shared<byte[]>(block_size) 
-		);
-	}
+	init_threads(threads);
 
-	std::size_t blocks = input_file_size / block_size;
-	std::size_t done = 0;
 
-	std::queue<std::future<std::string>> futures;
-
-	// push all tasks
-	for (std::size_t i = 0; i < blocks; i++)
-	{
-		futures.emplace(
-			pool.push_task(
-				std::bind(
-					&hash_generator::do_one_block,
-					this,
-					std::placeholders::_1,
-					std::placeholders::_2,
-					i
-				)
-			)
-		);
-	}
+	auto futures = init_tasks();
 
 	// wait for them to finish in right sequence and
 	// write results to a file
-	for (std::size_t i = 0; i < blocks; i++)
+	bool all_right {true};
+	for (std::size_t i = 0; i < blocks_n; i++)
 	{
-		signature_file << futures.front().get();
+		try
+		{
+			signature_file << futures.front().get();
+		}
+		catch(const std::exception& e)
+		{
+			all_right = false;
+			break;
+		}
+		
 		futures.pop();
 	}
 	 
 	pool.finish();
+	return all_right;
+}
+
+void hash_generator::init_threads(std::size_t amount)
+{
+	for (std::size_t i = 0 ; i < amount; i++)
+	{
+		pool.add_thread(
+			std::ifstream(input_file_name, std::ios_base::binary),
+			std::shared_ptr<byte[]>(new byte[block_size])
+		);
+	}
+}
+
+std::queue<std::future<std::string>> hash_generator::init_tasks()
+{
+	std::queue<std::future<std::string>> futures;
+
+	// push all tasks
+	for (std::size_t i = 0; i < blocks_n - 1; i++)
+	{
+		futures.emplace(
+			pool.push_task(
+				[this, i](std::ifstream & ifs, byte_arr & arr)
+				{
+					return this->do_one_block(ifs, arr, block_size, i);
+				}
+			)
+		);
+	}
+
+	futures.emplace(
+		pool.push_task(
+			[this](std::ifstream & ifs, byte_arr & arr)
+			{
+				return this->do_one_block(ifs, arr, last_block_size, blocks_n - 1);
+			}
+		)
+	);
+
+	return futures;
 }
 
 
 std::string hash_generator::do_one_block(
 	std::ifstream & thread_file_instance,
 	byte_arr thread_buffer,
+	std::size_t size,
 	std::size_t id
-)
+) const
 {
 	if (!thread_file_instance.is_open())
 	{
@@ -111,7 +140,7 @@ std::string hash_generator::do_one_block(
 	}
 
 	thread_file_instance.seekg(id * block_size);
-	thread_file_instance.read(thread_buffer.get(), block_size);
+	thread_file_instance.read(thread_buffer.get(), size);
 
 	return hash(thread_buffer, block_size);
 }

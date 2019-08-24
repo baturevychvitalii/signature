@@ -18,7 +18,10 @@ file(GLOB SOURCES "src/*.cpp")
 add_executable(signator ${SOURCES})
 
 find_package(Boost 1.69.0 COMPONENTS program_options REQUIRED)
-find_package(Threads REQUIRED)
 
-target_link_libraries(signator ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+set (THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
+
+target_link_libraries(signator ${Boost_LIBRARIES} Threads::Threads ${OPENSSL_LIBRARIES})
 

@@ -11,6 +11,7 @@
 template <class ... ArgsOwnedByThread>
 class thread_pool
 {
+	using task_type = std::packaged_task<void(ArgsOwnedByThread & ...)>;
 	public:
 		thread_pool()
 			: job_done(false)
@@ -40,10 +41,10 @@ class thread_pool
 		* add task for workers
 		* @return future, linked to newly pushed task
 		*/
-		template<typename Func, typename Ret = std::invoke_result_t<Func, ArgsOwnedByThread ...>>
+		template<typename Func, typename Ret = std::invoke_result_t<Func, ArgsOwnedByThread & ...>>
 		std::future<Ret> push_task(Func && task)
 		{
-			std::packaged_task<Ret(ArgsOwnedByThread...)> pt(std::forward<Func>(task));
+			std::packaged_task<Ret(ArgsOwnedByThread & ...)> pt(std::forward<Func>(task));
 			auto fut = pt.get_future();
 
 			{
@@ -56,7 +57,7 @@ class thread_pool
 			return fut;
 		}
 
-		void add_thread(ArgsOwnedByThread&& ... args_for_thread)
+		void add_thread(ArgsOwnedByThread && ... args_for_thread)
 		{
 			workers.push_back(
 				std::async(
@@ -92,17 +93,17 @@ class thread_pool
 		* packaged tasks are being given pointer to this thread pool
 		* this way when some special task finishes job - it can set job finished flag
 		*/
-		std::queue<std::packaged_task<void(ArgsOwnedByThread ...)>> tasks;
+		std::queue<task_type> tasks;
 		std::vector<std::future<void>> workers;
 		std::atomic<bool> job_done;
 
 		// the work that a worker thread does:
 		void thread_routine(ArgsOwnedByThread ... args_for_tasks)
 		{
+			task_type next_task;
+
 			while(!job_done)
 			{
-				std::packaged_task<void(ArgsOwnedByThread ...)> perform_task;
-
 				{
 					std::unique_lock<std::mutex> l(m);
 					if (tasks.empty())
@@ -113,14 +114,14 @@ class thread_pool
 							return;
 					}
 
-					perform_task = std::move(tasks.front());
+					next_task = std::move(tasks.front());
 					tasks.pop();
 				}
 
 				// note: args are not forwarded, because this thread shall be
 				// their owner. this is the point of this args, that they are
 				// thread specific
-				perform_task(args_for_tasks ...);
+				next_task(args_for_tasks ...);
 			}
 		}
 };

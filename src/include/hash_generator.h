@@ -1,7 +1,6 @@
 #ifndef __SYNCHRONIZER__
 #define __SYNCHRONIZER__
 
-#include <type_traits>
 #include <fstream>
 
 #include "thread_pool.h"
@@ -18,12 +17,12 @@ class hash_generator
 	 * size of a block to process for single task unit (in bytes)
 	 */
 	const std::size_t block_size;
+	std::size_t last_block_size;
 
 	/*
-	 * file size devided by block size
-	 * (this much tasks will be launched)
+	 * amount of blocks in a file (including the last one)
 	 */
-	std::size_t amount_of_blocks;
+	std::size_t blocks_n;
 
 	/*
 	 * if set to true more info will be displayed
@@ -40,8 +39,6 @@ class hash_generator
 	 */
 	const std::string input_file_name;
 
-	std::size_t input_file_size;
-
 	/*
 	 * folowing declaration says that we are using thread pool
 	 * and each thread will have it's own ifstream object and
@@ -51,14 +48,21 @@ class hash_generator
 	 */
 	thread_pool<std::ifstream, byte_arr> pool;
 
+	void init_threads(std::size_t amount);
 	
-	static std::string hash(byte_arr data, std::size_t size);
+	std::queue<std::future<std::string>> init_tasks();
+
+	std::size_t check_input_file() const;
+
 
 	std::string do_one_block(
 		std::ifstream & thread_file_instance,
 		byte_arr thread_buffer,
+		std::size_t size,
 		std::size_t id
-	);
+	) const;
+
+	static std::string hash(byte_arr data, std::size_t size);
 
 	public:
 		/*
