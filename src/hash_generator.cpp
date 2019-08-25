@@ -11,13 +11,14 @@
 hash_generator::hash_generator(const input & user_input)
 	: block_size(user_input.get_block_size<kilobytes_to_bytes>()),
 	verbose(user_input.is_verbose()),
-	input_file_name(user_input.get_input_file())
+	input_file_name(user_input.get_input_file()),
+	output_file_name(user_input.get_output_file())
 {
 	auto input_file_size = check_input_file();
 
 
 	// check if output file is possible to write to
-	signature_file.open(user_input.get_output_file(), std::ios_base::trunc);
+	std::ofstream signature_file(output_file_name, std::ios_base::trunc);
 	if (!signature_file.is_open())
 		throw file_exception("couldn't open output file for writing");
 
@@ -70,7 +71,7 @@ bool hash_generator::operator()(std::size_t threads)
 	{
 		try
 		{
-			signature_file << futures.front().get();
+			futures.front().get();
 			if (verbose)
 			{
 				bar.update(i+1);
@@ -99,26 +100,28 @@ void hash_generator::init_threads(std::size_t amount)
 	{
 		pool.add_thread(
 			std::ifstream(input_file_name, std::ios_base::binary),
-			std::shared_ptr<byte[]>(new byte[block_size])
+			std::ofstream(output_file_name, std::ios_base::binary | std::ios_base::ate),
+			byte_arr(new byte[block_size]),
+			byte_arr(new byte[SHA256_DIGEST_LENGTH])
 		);
 	}
 }
 
-std::queue<std::future<std::string>> hash_generator::init_tasks()
+std::queue<std::future<void>> hash_generator::init_tasks()
 {
 	if (verbose)
 		std::cout << "initializing tasks\n" << std::flush;
 
-	std::queue<std::future<std::string>> futures;
+	std::queue<std::future<void>> futures;
 
 	// push all tasks
 	for (std::size_t i = 0; i < blocks_n - 1; i++)
 	{
 		futures.emplace(
 			pool.push_task(
-				[this, i](std::ifstream & ifs, byte_arr & arr)
+				[this, i](std::ifstream & ifs, std::ofstream & ofs, byte_arr & arr1, byte_arr & arr2)
 				{
-					return this->do_one_block(ifs, arr, block_size, i);
+					return this->do_one_block(ifs, ofs, arr1, arr2, block_size, i);
 				}
 			)
 		);
@@ -126,9 +129,9 @@ std::queue<std::future<std::string>> hash_generator::init_tasks()
 
 	futures.emplace(
 		pool.push_task(
-			[this](std::ifstream & ifs, byte_arr & arr)
+			[this](std::ifstream & ifs, std::ofstream & ofs, byte_arr & arr1, byte_arr & arr2)
 			{
-				return this->do_one_block(ifs, arr, last_block_size, blocks_n - 1);
+				return this->do_one_block(ifs, ofs, arr1, arr2, last_block_size, blocks_n - 1);
 			}
 		)
 	);
@@ -140,34 +143,35 @@ std::queue<std::future<std::string>> hash_generator::init_tasks()
 }
 
 
-std::string hash_generator::do_one_block(
+void hash(hash_generator::byte_arr bytes, hash_generator::byte_arr out, size_t size)
+{
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, bytes.get(), size);
+	SHA256_Final(reinterpret_cast<unsigned char *>(out.get()), &sha256);
+}
+
+void hash_generator::do_one_block(
 	std::ifstream & thread_file_instance,
+	std::ofstream & thread_out_instance,
 	byte_arr thread_buffer,
+	byte_arr thread_buffer_hash,
 	std::size_t size,
 	std::size_t id
 ) const
 {
 	if (!thread_file_instance.is_open())
-		throw file_exception("file must be open by thread");
+		throw file_exception("input file must be open by thread");
+	
+	if (!thread_out_instance.is_open())
+		throw file_exception("output ifle must be open by thread");
+
 
 	thread_file_instance.seekg(id * block_size);
 	thread_file_instance.read(thread_buffer.get(), size);
 
-	return hash(thread_buffer, block_size);
+	hash(thread_buffer, thread_buffer_hash, size);
+	thread_out_instance.seekp(id * SHA256_DIGEST_LENGTH);
+	thread_out_instance.write(thread_buffer_hash.get(), SHA256_DIGEST_LENGTH);
 }
 
-std::string hash_generator::hash(byte_arr bytes, size_t size)
-{
-	unsigned char result[SHA256_DIGEST_LENGTH];
-	SHA256_CTX sha256;
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, bytes.get(), size);
-	SHA256_Final(result, &sha256);
-	std::stringstream ss;
-	for (int i = 0; i < SHA224_DIGEST_LENGTH; i++)
-	{
-		ss << std::ios_base::hex << std::setw(2) << std::setfill('0') << result[i];
-	}
-
-	return ss.str();
-}
