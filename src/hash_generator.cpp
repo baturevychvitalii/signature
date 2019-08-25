@@ -5,6 +5,7 @@
 
 #include "include/hash_generator.h"
 #include "include/input.h"
+#include "include/progress_bar.h"
 
 
 hash_generator::hash_generator(const input & user_input)
@@ -18,9 +19,7 @@ hash_generator::hash_generator(const input & user_input)
 	// check if output file is possible to write to
 	signature_file.open(user_input.get_output_file(), std::ios_base::trunc);
 	if (!signature_file.is_open())
-	{
 		throw file_exception("couldn't open output file for writing");
-	}
 
 	// determine block size, amount of blocks and last block size
 	if (input_file_size % block_size == 0)
@@ -39,17 +38,16 @@ std::size_t hash_generator::check_input_file() const
 {
 	std::ifstream input_file(input_file_name, std::ios_base::binary | std::ios_base::ate);
 	if (!input_file.is_open())
-	{
 		throw file_exception("couldn't open input file for reading");
-	}
 
 	// since file was opened wit ios_base::ate size can be determined immediately
 	std::size_t size = input_file.tellg();
 
 	if (size == 0)
-	{
 		throw std::invalid_argument("file is empty!");
-	}
+
+	if (verbose)
+		std::cout << "input file size " << size << " bytes" << std::endl;
 
 	return size;
 }
@@ -66,12 +64,18 @@ bool hash_generator::operator()(std::size_t threads)
 
 	// wait for them to finish in right sequence and
 	// write results to a file
+	progress_bar bar(blocks_n, '#', 15);
 	bool all_right {true};
 	for (std::size_t i = 0; i < blocks_n; i++)
 	{
 		try
 		{
 			signature_file << futures.front().get();
+			if (verbose)
+			{
+				bar.update(i+1);
+				std::cout << bar;
+			}
 		}
 		catch(const std::exception& e)
 		{
@@ -88,6 +92,9 @@ bool hash_generator::operator()(std::size_t threads)
 
 void hash_generator::init_threads(std::size_t amount)
 {
+	if (verbose)
+		std::cout << "creating " << amount << " thread environment" << std::endl;
+
 	for (std::size_t i = 0 ; i < amount; i++)
 	{
 		pool.add_thread(
@@ -99,6 +106,9 @@ void hash_generator::init_threads(std::size_t amount)
 
 std::queue<std::future<std::string>> hash_generator::init_tasks()
 {
+	if (verbose)
+		std::cout << "initializing tasks\n" << std::flush;
+
 	std::queue<std::future<std::string>> futures;
 
 	// push all tasks
@@ -123,6 +133,9 @@ std::queue<std::future<std::string>> hash_generator::init_tasks()
 		)
 	);
 
+	if (verbose)
+		std::cout << "done initialializing tasks\n" << std::flush;
+
 	return futures;
 }
 
@@ -135,9 +148,7 @@ std::string hash_generator::do_one_block(
 ) const
 {
 	if (!thread_file_instance.is_open())
-	{
 		throw file_exception("file must be open by thread");
-	}
 
 	thread_file_instance.seekg(id * block_size);
 	thread_file_instance.read(thread_buffer.get(), size);
@@ -155,7 +166,7 @@ std::string hash_generator::hash(byte_arr bytes, size_t size)
 	std::stringstream ss;
 	for (int i = 0; i < SHA224_DIGEST_LENGTH; i++)
 	{
-		ss << std::ios_base::hex << std::setw(2) << std::setfill('0') << (int)result[i];
+		ss << std::ios_base::hex << std::setw(2) << std::setfill('0') << result[i];
 	}
 
 	return ss.str();

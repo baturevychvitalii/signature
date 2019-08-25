@@ -36,8 +36,6 @@ struct input
 		void check_bad() const;
 };
 
-#ifdef DEBUG
 std::ostream & operator << (std::ostream & os, const input & i);
-#endif
 
 #endif

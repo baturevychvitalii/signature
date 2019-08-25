@@ -6,13 +6,14 @@ int main (int argc, char * argv[])
 {
 	input input(argc, argv, std::cerr);
 
-	#ifdef DEBUG
-	std::cout << "showing input:\n" << input << std::endl;
-	#endif
-
 	if (input.is_bad())
 	{
 		return 1;
+	}
+
+	if (input.is_verbose())
+	{
+		std::cout << input << std::endl;
 	}
 
 	std::unique_ptr<hash_generator> generate_hash;
