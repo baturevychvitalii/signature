@@ -7,6 +7,7 @@
 
 class input;
 
+
 class hash_generator
 {
 	using kilobytes_to_bytes = std::ratio<1024,1>::type;
@@ -15,7 +16,11 @@ class hash_generator
 		using byte = char;
 		using byte_arr = std::shared_ptr<byte[]>;
 		using ubyte_arr = std::unique_ptr<byte[]>;
+		using hash_function_t = ubyte_arr (*)(byte_arr, std::size_t);
+
 	private:
+		hash_function_t hash_function;
+		std::size_t hash_block_size;
 
 		/*
 		* size of a block to process for single task unit (in bytes)
@@ -72,7 +77,7 @@ class hash_generator
 		 * output file is created and empty, available
 		 * for writing to it
 		 */
-		hash_generator(const input & user_input);
+		hash_generator(const input & user_input, hash_function_t func, std::size_t hash_block_len);
 
 		/*
 		 * starts n_threads threads for signature generation

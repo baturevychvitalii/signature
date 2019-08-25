@@ -1,18 +1,16 @@
 #include <iostream>
 #include <iomanip>
-#include <cstring>
-
-#include <openssl/sha.h>
 
 #include "include/hash_generator.h"
 #include "include/input.h"
 #include "include/progress_bar.h"
 #include "include/buffered_writer.h"
 
-const unsigned int out_block_len = SHA256_DIGEST_LENGTH;
 
-hash_generator::hash_generator(const input & user_input)
-	: block_size(user_input.get_block_size<kilobytes_to_bytes>()),
+hash_generator::hash_generator(const input & user_input, hash_generator::hash_function_t func, std::size_t hash_block_len)
+	: hash_function(func),
+	hash_block_size(hash_block_len),
+	block_size(user_input.get_block_size<kilobytes_to_bytes>()),
 	verbose(user_input.is_verbose()),
 	input_file_name(user_input.get_input_file()),
 	output_file_name(user_input.get_output_file())
@@ -33,7 +31,7 @@ hash_generator::hash_generator(const input & user_input)
 
 	if (verbose)
 		std::cout << "will process " << blocks_n << " blocks (" << block_size << " bytes each)\n"
-			<< "output file size must be " << blocks_n * out_block_len << " bytes" << std::endl;
+			<< "output file size must be " << blocks_n * hash_block_size << " bytes" << std::endl;
 }
 
 std::size_t hash_generator::check_input_file() const
@@ -60,8 +58,6 @@ bool hash_generator::operator()(std::size_t threads)
 		throw std::invalid_argument("must be at least one thread");
 
 	init_threads(threads);
-
-
 	auto futures = init_tasks();
 
 	return geather_results(futures);
@@ -111,7 +107,7 @@ std::queue<std::future<std::unique_ptr<hash_generator::byte[]>>> hash_generator:
 	);
 
 	if (verbose)
-		std::cout << "done initialializing tasks\n" << std::flush;
+		std::cout << "done initializing tasks\n" << std::flush;
 
 	return futures;
 }
@@ -122,8 +118,9 @@ bool hash_generator::geather_results(std::queue<std::future<ubyte_arr>> & future
 	// write results to a file
 	progress_bar bar(blocks_n, '#', 15);
 	bool all_right {true};
+
 	{
-		buffered_writer writer(output_file_name, out_block_len, 1024*10);
+		buffered_writer writer(output_file_name, hash_block_size, 1024*10);
 		for (std::size_t i = 0; i < blocks_n; i++)
 		{
 			try
@@ -151,17 +148,7 @@ bool hash_generator::geather_results(std::queue<std::future<ubyte_arr>> & future
 	return all_right;
 }
 
-hash_generator::ubyte_arr hash(hash_generator::byte_arr bytes, size_t size)
-{
-	SHA256_CTX sha256;
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, bytes.get(), size);
-	hash_generator::ubyte_arr result = std::make_unique<hash_generator::byte[]>(out_block_len);
-	SHA256_Final(reinterpret_cast<unsigned char *>(result.get()), &sha256);
-	return result;
-}
-
-hash_generator::ubyte_arr hash_generator::do_one_block(
+hash_generator::ubyte_arr  hash_generator::do_one_block(
 	std::ifstream & thread_file_instance,
 	byte_arr thread_buffer,
 	std::size_t size,
@@ -173,7 +160,6 @@ hash_generator::ubyte_arr hash_generator::do_one_block(
 	
 	thread_file_instance.seekg(id * block_size);
 	thread_file_instance.read(thread_buffer.get(), size);
-
-	return hash(thread_buffer, size);
+	return hash_function(thread_buffer, size);
 }
 

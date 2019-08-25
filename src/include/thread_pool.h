@@ -4,6 +4,7 @@
 #include <queue>
 #include <vector>
 #include <future>
+#include <thread>
 #include <mutex>
 
 #include "custom_exceptions.h"
