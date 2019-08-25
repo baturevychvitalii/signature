@@ -21,7 +21,6 @@ find_package(Boost 1.69.0 COMPONENTS program_options REQUIRED)
 
 set (THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-find_package(OpenSSL REQUIRED)
 
-target_link_libraries(signator ${Boost_LIBRARIES} Threads::Threads ${OPENSSL_LIBRARIES})
+target_link_libraries(signator ${Boost_LIBRARIES} Threads::Threads)
 
