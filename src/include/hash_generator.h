@@ -14,55 +14,57 @@ class hash_generator
 	public:
 		using byte = char;
 		using byte_arr = std::shared_ptr<byte[]>;
+		using ubyte_arr = std::unique_ptr<byte[]>;
 	private:
 
-	/*
-	 * size of a block to process for single task unit (in bytes)
-	 */
-	const std::size_t block_size;
-	std::size_t last_block_size;
+		/*
+		* size of a block to process for single task unit (in bytes)
+		*/
+		const std::size_t block_size;
+		std::size_t last_block_size;
 
-	/*
-	 * amount of blocks in a file (including the last one)
-	 */
-	std::size_t blocks_n;
+		/*
+		* amount of blocks in a file (including the last one)
+		*/
+		std::size_t blocks_n;
 
-	/*
-	 * if set to true more info will be displayed
-	 */
-	const bool verbose;
+		/*
+		* if set to true more info will be displayed
+		*/
+		const bool verbose;
 
-	
-	/*
-	 * name of the file, from which input will be read
-	 */
-	const std::string input_file_name;
-	const std::string output_file_name;
-
-	/*
-	 * folowing declaration says that we are using thread pool
-	 * and each thread will have it's own ifstream object and
-	 * char array, so we don't create ifstream for each task
-	 * and don't allocate and delete char buffer with each task,
-	 * but keep them alive for all tasks, launched by thread
-	 */
-	thread_pool<std::ifstream, std::ofstream, byte_arr, byte_arr> pool;
-
-	void init_threads(std::size_t amount);
-	
-	std::queue<std::future<void>> init_tasks();
-
-	std::size_t check_input_file() const;
+		
+		/*
+		* name of the file, from which input will be read
+		*/
+		const std::string input_file_name;
+		const std::string output_file_name;
 
 
-	void do_one_block(
-		std::ifstream & thread_file_instance,
-		std::ofstream & thread_out_instance,
-		byte_arr thread_buffer,
-		byte_arr thread_buffer_hash,
-		std::size_t size,
-		std::size_t id
-	) const;
+		/*
+		* folowing declaration says that we are using thread pool
+		* and each thread will have it's own ifstream object and
+		* char array, so we don't create ifstream for each task
+		* and don't allocate and delete char buffer with each task,
+		* but keep them alive for all tasks, launched by thread
+		*/
+		thread_pool<std::ifstream, byte_arr> pool;
+
+		void init_threads(std::size_t amount);
+		
+		std::queue<std::future<ubyte_arr>> init_tasks();
+
+		bool geather_results(std::queue<std::future<ubyte_arr>> & futures);
+
+		std::size_t check_input_file() const;
+
+
+		ubyte_arr do_one_block(
+			std::ifstream & thread_file_instance,
+			byte_arr thread_buffer,
+			std::size_t size,
+			std::size_t id
+		) const;
 
 	public:
 		/*
