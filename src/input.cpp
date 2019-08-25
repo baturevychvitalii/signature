@@ -79,7 +79,7 @@ std::ostream & operator << (std::ostream & os, const input & i)
 	{
 		os << "input file = "<< i.get_input_file()
 			<< "\noutput file = " << i.get_output_file()
-			<< "\nblock size = " << i.get_block_size()
+			<< "\nblock size = " << i.get_block_size() << " (kilobytes)"
 			<< "\nverbose = " << std::ios_base::boolalpha << i.is_verbose() << std::endl;
 	}
 

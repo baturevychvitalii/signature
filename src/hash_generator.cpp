@@ -116,7 +116,7 @@ bool hash_generator::geather_results(std::queue<std::future<ubyte_arr>> & future
 {
 	// wait for them to finish in right sequence and
 	// write results to a file
-	progress_bar bar(blocks_n, '#', 15);
+	progress_bar bar(blocks_n, '@', 20);
 	bool all_right {true};
 
 	{
@@ -136,10 +136,7 @@ bool hash_generator::geather_results(std::queue<std::future<ubyte_arr>> & future
 			futures.pop();
 
 			if (verbose)
-			{
-				bar.update(i+1);
-				std::cout << bar;
-			}
+				bar.update(i + 1);
 		}
 	}
 	 
