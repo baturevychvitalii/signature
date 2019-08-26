@@ -6,11 +6,11 @@
 #include "thread_pool.h"
 
 class input;
-
+class buffered_reader;
 
 class hash_generator
 {
-	using kilobytes_to_bytes = std::ratio<1024,1>::type;
+	using kilobytes = std::ratio<1024,1>::type;
 
 	public:
 		using byte = char;
@@ -42,8 +42,8 @@ class hash_generator
 		/*
 		* name of the file, from which input will be read
 		*/
-		const std::string input_file_name;
 		const std::string output_file_name;
+		const std::string input_file_name;
 
 
 		/*
@@ -53,23 +53,15 @@ class hash_generator
 		* and don't allocate and delete char buffer with each task,
 		* but keep them alive for all tasks, launched by thread
 		*/
-		thread_pool<std::ifstream, byte_arr> pool;
+		thread_pool<byte_arr> pool;
 
 		void init_threads(std::size_t amount);
+
+		void resolve_input_file_size(std::size_t file_size);
 		
-		std::queue<std::future<ubyte_arr>> init_tasks();
+		std::queue<std::future<ubyte_arr>> init_tasks(buffered_reader & reader);
 
 		bool geather_results(std::queue<std::future<ubyte_arr>> & futures);
-
-		std::size_t check_input_file() const;
-
-
-		ubyte_arr do_one_block(
-			std::ifstream & thread_file_instance,
-			byte_arr thread_buffer,
-			std::size_t size,
-			std::size_t id
-		) const;
 
 	public:
 		/*

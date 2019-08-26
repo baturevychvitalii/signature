@@ -6,6 +6,7 @@
 #include <future>
 #include <thread>
 #include <mutex>
+#include <iostream>
 
 #include "custom_exceptions.h"
 

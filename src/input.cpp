@@ -27,15 +27,13 @@ input::input(int argc, char * argv[], std::ostream & error_stream)
 	catch(const std::exception& e)
 	{
 		error_stream << e.what() << "\n\n" << desc << std::endl;
+		return;
 	}
 	
-	if (!bad)
-	{
-		inputfile = std::move(var_map["input_file"].as<std::string>());
-		outputfile = std::move(var_map["output_file"].as<std::string>());
-		b_size = std::move(var_map["block_size"].as<std::size_t>());
-		verbose = std::move(var_map["verbose"].as<bool>());
-	}
+	inputfile = std::move(var_map["input_file"].as<std::string>());
+	outputfile = std::move(var_map["output_file"].as<std::string>());
+	b_size = std::move(var_map["block_size"].as<std::size_t>());
+	verbose = std::move(var_map["verbose"].as<bool>());
 }
 
 bool input::is_bad() const noexcept
