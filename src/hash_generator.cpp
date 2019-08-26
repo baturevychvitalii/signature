@@ -69,12 +69,10 @@ void hash_generator::init_threads(std::size_t amount)
 		std::cout << "creating " << amount << " thread environment" << std::endl;
 
 	for (std::size_t i = 0 ; i < amount; i++)
-	{
 		pool.add_thread(
 			std::ifstream(input_file_name, std::ios_base::binary),
 			byte_arr(new byte[block_size])
 		);
-	}
 }
 
 std::queue<std::future<std::unique_ptr<hash_generator::byte[]>>> hash_generator::init_tasks()

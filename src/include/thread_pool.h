@@ -9,6 +9,10 @@
 
 #include "custom_exceptions.h"
 
+/*
+ * thread pool which allows threads to store their own
+ * unique resources, which will be passed to tasks.
+ */
 template <class ... ArgsOwnedByThread>
 class thread_pool
 {
@@ -58,6 +62,12 @@ class thread_pool
 			return fut;
 		}
 
+		/*
+		 * add worker thread, which will be executing tasks.
+		 * it will be owner of ArgsOwnedByThread ...
+		 * for example each thread can have it's own std::ifstream
+		 * which will be passed to tasks
+		 */
 		void add_thread(ArgsOwnedByThread && ... args_for_thread)
 		{
 			workers.push_back(
@@ -72,7 +82,7 @@ class thread_pool
 		
 		/*
 		* sets job_done flag to true
-		* waits for threads to join
+		* notifies other threads so they can leave their loops
 		*/
 		void finish()
 		{
@@ -91,11 +101,21 @@ class thread_pool
 		std::condition_variable cond_var;
 
 		/*
-		* packaged tasks are being given pointer to this thread pool
-		* this way when some special task finishes job - it can set job finished flag
-		*/
+		 * queue of tasks. threads will pop tasks from this
+		 * queue, invoke them and get new tasks
+		 */
 		std::queue<task_type> tasks;
+
+		/*
+		 * vector of threads (workers). they are waiting in
+		 * a loop for tasks to come untill somebody called
+		 * finish() function.
+		 */
 		std::vector<std::future<void>> workers;
+
+		/*
+		 * flag indicating wheather job is done or no
+		 */
 		std::atomic<bool> job_done;
 
 		// the work that a worker thread does:
